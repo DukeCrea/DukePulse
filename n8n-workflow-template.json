@@ -1,0 +1,111 @@
+{
+  "name": "PostFlow → DukePulse Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "postflow-published",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook - PostFlow",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "postflow-webhook-001"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Formatear datos para DukePulse\nconst postData = items[0].json;\n\nreturn [{\n  json: {\n    secret: \"duke-secret-key-2024\",\n    event: \"post_published\",\n    data: {\n      post_id: postData.post_id || `post_${Date.now()}`,\n      platform: postData.platform || \"instagram\",\n      published_at: postData.published_at || new Date().toISOString(),\n      copy: postData.copy || postData.caption || \"\",\n      media_url: postData.media_url || postData.image_url || \"\",\n      metadata: {\n        marca: postData.marca,\n        modelo: postData.modelo,\n        año: postData.año,\n        precio: postData.precio\n      }\n    }\n  }\n}];"
+      },
+      "name": "Format Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://dukepulse:8080/webhook",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=secret",
+              "value": "={{ $json.secret }}"
+            },
+            {
+              "name": "=event",
+              "value": "={{ $json.event }}"
+            },
+            {
+              "name": "=data",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Send to DukePulse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "success"
+            }
+          ]
+        }
+      },
+      "name": "Check Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - PostFlow": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data": {
+      "main": [
+        [
+          {
+            "node": "Send to DukePulse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to DukePulse": {
+      "main": [
+        [
+          {
+            "node": "Check Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "postflow-dukepulse-integration"
+}
